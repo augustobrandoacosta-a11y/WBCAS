@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Butter Wax Crack ASMR</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: sans-serif;
+            user-select: none;
+        }
+        #instructions {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            text-align: center;
+            color: #fff3cc;
+            font-size: 1.2rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            pointer-events: none;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <div id="instructions">✨ Click or Tap the Butter Wax to Crack It ✨</div>
+
+    <script>
+        // --- 1. SETUP AUDIO (Procedural ASMR Crunch) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playCrackSound() {
+            // Resume context if suspended (browser security)
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            // Create a short burst of noise for the crunch/crackle
+            const bufferSize = audioCtx.sampleRate * 0.08; // 80ms burst
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            // Fill buffer with random noise filtered to sound crisp
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+
+            const noiseNode = audioCtx.createBufferSource();
+            noiseNode.buffer = buffer;
+
+            // Filter to make it sound like crisp wax/clay breaking
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = 2500 + Math.random() * 1500; // Randomize pitch slightly
+            filter.Q.value = 3;
+
+            // Volume envelope
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.07);
+
+            // Connect nodes
+            noiseNode.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            noiseNode.start();
+        }
+
+        // --- 2. SETUP 3D SCENE ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x1e1e24);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 0, 5);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // --- 3. LIGHTING (Soft & Satisfying) ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xfff5e6, 0.8);
+        dirLight.position.set(5, 10, 7);
+        dirLight.castShadow = true;
+        scene.add(dirLight);
+
+        // --- 4. CREATE THE BUTTER WAX BLOCK ---
+        // A smooth, creamy pastel yellow color
+        const waxMaterial = new THREE.MeshStandardMaterial({
+            color: 0xffe680, 
+            roughness: 0.4,
+            metalness: 0.1,
+            flatShading: true // Gives it a nice clean, low-poly clay look when it breaks
+        });
+
+        const blockGeometry = new THREE.BoxGeometry(2, 1.2, 1.2, 4, 3, 3);
+        const mainBlock = new THREE.Mesh(blockGeometry, waxMaterial);
+        mainBlock.castShadow = true;
+        mainBlock.receiveShadow = true;
+        scene.add(mainBlock);
+
+        // --- 5. CRACK PARTICLES SYSTEM ---
+        const fragments = [];
+
+        function createCracks(point) {
+            // Spawn 15-25 tiny shards per click
+            const shardCount = 15 + Math.floor(Math.random() * 10);
+            
+            for (let i = 0; i < shardCount; i++) {
+                // Random tiny geometries for the shards
+                const size = 0.05 + Math.random() * 0.15;
+                const shardGeo = new THREE.ConeGeometry(size, size * 2, 4);
+                const shard = new THREE.Mesh(shardGeo, waxMaterial);
+
+                // Position right where the mouse clicked on the block
+                shard.position.copy(point);
+                // Add slight randomness to position
+                shard.position.x += (Math.random() - 0.5) * 0.2;
+                shard.position.y += (Math.random() - 0.5) * 0.2;
+                shard.position.z += (Math.random() - 0.5) * 0.2;
+
+                // Random rotations
+                shard.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+
+                // Physics velocities (burst outwards and downwards)
+                shard.userData = {
+                    velocity: new THREE.Vector3(
+                        (Math.random() - 0.5) * 3,
+                        (Math.random() * 2) + 1, // Burst upward slightly before falling
+                        (Math.random() - 0.1) * 3
+                    ),
+                    weight: 0.15 + Math.random() * 0.1
+                };
+
+                scene.add(shard);
+                fragments.push(shard);
+            }
+        }
+
+        // --- 6. INTERACTION (Raycasting) ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function onPointerDown(event) {
+            // Calculate mouse position in normalized device coordinates
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObject(mainBlock);
+
+            if (intersects.length > 0) {
+                const hitPoint = intersects[0].point;
+                
+                // Play audio and trigger visual shards
+                playCrackSound();
+                createCracks(hitPoint);
+
+                // Subtle visual feedback on the main block (squish it a tiny bit)
+                mainBlock.scale.set(0.98, 0.98, 0.98);
+                setTimeout(() => mainBlock.scale.set(1, 1, 1), 80);
+            }
+        }
+
+        window.addEventListener('pointerdown', onPointerDown);
+
+        // --- 7. ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+
+            // Gently float and rotate the main block for display
+            if (mainBlock) {
+                mainBlock.rotation.y = Math.sin(clock.getElapsedTime() * 0.5) * 0.2;
+                mainBlock.rotation.x = Math.cos(clock.getElapsedTime() * 0.3) * 0.1;
+            }
+
+            // Update physics for all the crack fragments
+            for (let i = fragments.length - 1; i >= 0; i--) {
+                const shard = fragments[i];
+                
+                // Apply Gravity to velocity
+                shard.userData.velocity.y -= 9.8 * shard.userData.weight * delta;
+                
+                // Move shard based on velocity
+                shard.position.addScaledVector(shard.userData.velocity, delta);
+                
+                // Spin shard as it falls
+                shard.rotation.x += 0.05;
+                shard.rotation.y += 0.05;
+
+                // Remove old shards that fell off screen to keep it running smoothly
+                if (shard.position.y < -4) {
+                    scene.remove(shard);
+                    fragments.splice(i, 1);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // --- 8. WINDOW RESIZE RESILIENCE ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
